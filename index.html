@@ -51,7 +51,13 @@
       <input type="text" id="name" placeholder="ناوی کەسەکە">
       <button class="b" id="add">تۆمارکردن</button>
     </div>
-    <div class="row"><small>دەم و چاوی کەسەکە لە کامێرا بخەرە ناو چوارچێوەکە، ڕووناکی باش بێت، پاشان تۆماری بکە.</small></div>
+    <div class="row">
+      <button class="b g" id="pick">🖼️ هەڵبژاردنی وێنە لە گەلەری</button>
+      <button class="b g hide" id="unpick">✖️ لابردنی وێنە</button>
+      <input type="file" id="file" accept="image/*" class="hide">
+    </div>
+    <div class="row"><img id="prev" class="hide" style="width:80px;height:80px;border-radius:10px;object-fit:cover"></div>
+    <div class="row"><small>یان دەم و چاوی کەسەکە لە کامێرا بخەرە ناو چوارچێوەکە. ئەگەر وێنە هەڵبژێریت، وێنەکە بەکاردێت نەک کامێرا.</small></div>
   </div>
 
   <div id="watch" class="hide">
@@ -110,13 +116,27 @@ $("add").onclick=async()=>{
   const name=$("name").value.trim();
   if(!name){status.textContent="ناوێک بنووسە";return}
   status.textContent="دەم و چاو دەخوێنرێتەوە...";
-  const d=await faceapi.detectSingleFace(video,opts()).withFaceLandmarks().withFaceDescriptor();
-  if(!d){status.textContent="⚠️ هیچ دەم و چاوێک نەدۆزرایەوە، دووبارە هەوڵ بدە";return}
+  const src=pickedImg||video;
+  const d=await faceapi.detectSingleFace(src,new faceapi.TinyFaceDetectorOptions({inputSize:pickedImg?608:320,scoreThreshold:0.4})).withFaceLandmarks().withFaceDescriptor();
+  if(!d){status.textContent="⚠️ هیچ دەم و چاوێک نەدۆزرایەوە، دووبارە هەوڵ بدە یان وێنەیەکی ڕوونتر هەڵبژێرە";return}
   const t=document.createElement("canvas");t.width=t.height=96;
   const b=d.detection.box;
-  t.getContext("2d").drawImage(video,b.x,b.y,b.width,b.height,0,0,96,96);
+  t.getContext("2d").drawImage(src,Math.max(0,b.x),Math.max(0,b.y),b.width,b.height,0,0,96,96);
   people.push({name,desc:Array.from(d.descriptor),thumb:t.toDataURL("image/jpeg",0.7)});
   save();renderList();$("name").value="";status.textContent="✅ "+name+" تۆمارکرا";
+  clearPick();
+};
+
+let pickedImg=null;
+function clearPick(){pickedImg=null;$("file").value="";$("prev").classList.add("hide");$("unpick").classList.add("hide")}
+$("pick").onclick=()=>$("file").click();
+$("unpick").onclick=clearPick;
+$("file").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const img=new Image();
+  img.onload=()=>{pickedImg=img;$("prev").src=img.src;$("prev").classList.remove("hide");$("unpick").classList.remove("hide");status.textContent="وێنە هەڵبژێردرا. ناوەکە بنووسە و تۆماری بکە."};
+  img.onerror=()=>{status.textContent="⚠️ وێنەکە نەکرایەوە"};
+  img.src=URL.createObjectURL(f);
 };
 
 function beep(){
